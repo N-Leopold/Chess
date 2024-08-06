@@ -7,5 +7,7 @@ public class CHESS_MAIN
 		ChessBoard MasterGame = new ChessBoard();
 		Chess_RenderingEngine MasterRender = new Chess_RenderingEngine(MasterGame);
 		ChessBoardAI Brain = new ChessBoardAI(MasterGame, false);
+		//some edit
+		//another edit
 	}
 }
