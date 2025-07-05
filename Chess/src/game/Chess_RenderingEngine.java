@@ -9,16 +9,26 @@ import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.util.ArrayList;
+
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.Timer;
 
+import system.TEditor;
+
+@SuppressWarnings("serial")
 public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyListener,MouseListener
 {
 	JFrame window; //the window onto which the game will be rendered
 	Timer clock; //the timer that governs update speed
 	ChessBoard Zboard; //the ChessBoard we are working with
+	ChessBoardAI lilTimmy; //the AI that will run black in single player
+	ChessBoardAI bigBadBoy;
+	
+	String filePath; //the filepath for the history txt files
+	TEditor sHistory, mHistory; //connections to the txt files we will be saving the games to
 	
 	int Qwidth; //the queued width of the window
 	int Qheight; //the queued height of the window
@@ -99,9 +109,15 @@ public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyL
 				//10 - settings
 				//11 - credits
 	
-	public Chess_RenderingEngine(ChessBoard cb)
+	public Chess_RenderingEngine()
 	{
-		Zboard = cb;
+		Zboard = new ChessBoard();
+		lilTimmy = new ChessBoardAI(Zboard,false);
+		bigBadBoy = new ChessBoardAI(Zboard,true);
+		
+		filePath = "C:\\Users\\ncleo\\Desktop";
+		sHistory = new TEditor(filePath + "\\SavedSinglePlayerMoves.txt");
+		mHistory = new TEditor(filePath + "\\SavedMultiPlayerMoves.txt");
 		
 		Qwidth = 10;
 		Qwidth = 10;
@@ -161,8 +177,11 @@ public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyL
 			}
 			if(!Zboard.getTurn())
 			{
-				Zboard.performRandomBlackMove();
+				//System.out.println("it's black's turn");
+				//Zboard.performRandomBlackMove();
+				lilTimmy.AIturn();
 			}
+			else {bigBadBoy.play(4);}
 		}
 		else if(screen == 4 || screen == 5)
 		{
@@ -619,7 +638,7 @@ public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyL
 						//System.out.println(squareX + " " + squareY);
 						if(squareX == xPos && squareY == yPos)
 						{
-							Zboard.moveS(xTileClick, yTileClick, squareX, squareY);
+							Zboard.move(xTileClick, yTileClick, squareX, squareY);
 							tileClicked = false;
 							break legalCheck;
 						}	
@@ -714,7 +733,7 @@ public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyL
 						//System.out.println(squareX + " " + squareY);
 						if(squareX == xPos && squareY == yPos)
 						{
-							Zboard.moveM(xTileClick, yTileClick, squareX, squareY);
+							Zboard.move(xTileClick, yTileClick, squareX, squareY);
 							tileClicked = false;
 							//Zboard.nextTurn();
 							//System.out.println("good");
@@ -751,7 +770,7 @@ public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyL
 		if((x >= xCordBack + BackLength/8 + 6 && x <= xCordBack + BackLength/8 + 3*BackLength/4 + 6) 
 				&& (y >= yCordBack + 30 + BackLength/4 && y <= yCordBack + 30+ BackLength/4 + BackLength/8))
 		{
-			if(Zboard.doesSaveExistS())
+			if(doesSaveExistS())
 			{
 				screen = 5;
 			}
@@ -765,7 +784,7 @@ public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyL
 		else if((x >= xCordBack + BackLength/8 + 6 && x <= xCordBack + BackLength/8 + 3*BackLength/4 + 6) 
 				&& (y >= yCordBack + 30 + BackLength/2 && y <= yCordBack + 30 + BackLength/2 + BackLength/8))
 		{
-			if(Zboard.doesSaveExistM())
+			if(doesSaveExistM())
 			{
 				screen = 4;
 			}
@@ -793,14 +812,14 @@ public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyL
 		if((x >= xCordBack + BackLength/8 + 6 && x <= xCordBack + BackLength/8 + BackLength - BackLength/4 + 6)
 				&& (y >= yCordBack + BackLength/4 + 30 && y <= yCordBack + BackLength/4 + BackLength/8 + 30))
 		{
-			Zboard.loadSavedGameM();
+			loadSavedGameM();
 			screen = 2;
 			flip = true;
 		}
 		else if((x >= xCordBack + BackLength/8 + 6 && x <= xCordBack + BackLength/8 + BackLength - BackLength/4 + 6)
 				&& (y >= yCordBack + BackLength/2 + 30 && y <= yCordBack + BackLength/2 + BackLength/8 + 30))
 		{
-			Zboard.destroySavedGameM();
+			destroySavedGameM();
 			Zboard.loadNewGame();
 			screen = 2;
 			flip = true;
@@ -812,14 +831,14 @@ public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyL
 		if((x >= xCordBack + BackLength/8 + 6 && x <= xCordBack + BackLength/8 + BackLength - BackLength/4 + 6)
 				&& (y >= yCordBack + BackLength/4 + 30 && y <= yCordBack + BackLength/4 + BackLength/8 + 30))
 		{
-			Zboard.loadSavedGameS();
+			loadSavedGameS();
 			screen = 3;
 			flip = false;
 		}
 		else if((x >= xCordBack + BackLength/8 + 6 && x <= xCordBack + BackLength/8 + BackLength - BackLength/4 + 6)
 				&& (y >= yCordBack + BackLength/2 + 30 && y <= yCordBack + BackLength/2 + BackLength/8 + 30))
 		{
-			Zboard.destroySavedGameS();
+			destroySavedGameS();
 			Zboard.loadNewGame();
 			screen = 3;
 			flip = false;
@@ -838,14 +857,15 @@ public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyL
 				&& (y >= yCordBack + (BackLength/8)*3 + 30 && y <= yCordBack + (BackLength/8)*3 + BackLength/8 + 30))
 		{
 			//save and return home
+			saveGameS();
 			screen = 1;
 		}
 		else if((x >= xCordBack + BackLength/8 + 6 && x<= xCordBack + BackLength/8 + BackLength - BackLength/4 + 6)
 				&& (y >= yCordBack + (BackLength/8)*5 + 30 && y <= yCordBack + (BackLength/8)*5 + BackLength/8 + 30))
 		{
 			//discard and return home
-			screen = 1;
-			Zboard.destroySavedGameS();
+			destroySavedGameS();
+			screen = 1;			
 		}
 	}
 	
@@ -861,14 +881,15 @@ public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyL
 				&& (y >= yCordBack + (BackLength/8)*3 + 30 && y <= yCordBack + (BackLength/8)*3 + BackLength/8 + 30))
 		{
 			//save and return home
+			saveGameM();
 			screen = 1;
 		}
 		else if((x >= xCordBack + BackLength/8 + 6 && x<= xCordBack + BackLength/8 + BackLength - BackLength/4 + 6)
 				&& (y >= yCordBack + (BackLength/8)*5 + 30 && y <= yCordBack + (BackLength/8)*5 + BackLength/8 + 30))
 		{
 			//discard and return home
+			destroySavedGameM();
 			screen = 1;
-			Zboard.destroySavedGameM();
 		}
 	}
 	
@@ -883,7 +904,7 @@ public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyL
 		else if((x >= xCordBack + BackLength/8 + 6 && x <= xCordBack + BackLength/8 + BackLength - BackLength/4 + 6)
 				&& (y >= yCordBack + BackLength/2 + 30 && y <= yCordBack + BackLength/2 + BackLength/8 + 30))
 		{
-			Zboard.destroySavedGameS();
+			destroySavedGameS();
 			Zboard.loadNewGame();
 			screen = 1;
 			viewing = false;
@@ -901,7 +922,7 @@ public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyL
 		else if((x >= xCordBack + BackLength/8 + 6 && x <= xCordBack + BackLength/8 + BackLength - BackLength/4 + 6)
 				&& (y >= yCordBack + BackLength/2 + 30 && y <= yCordBack + BackLength/2 + BackLength/8 + 30))
 		{
-			Zboard.destroySavedGameM();
+			destroySavedGameM();
 			Zboard.loadNewGame();
 			screen = 1;
 			viewing = false;
@@ -942,7 +963,7 @@ public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyL
 			{
 				screen = 9;
 			}
-			else if(Zboard.doesSaveExistM())
+			else if(!Zboard.getGameHistory().isEmpty())
 			{
 				screen = 7;
 			}
@@ -957,7 +978,7 @@ public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyL
 			{
 				screen = 8;
 			}
-			else if(Zboard.doesSaveExistS())
+			else if(!Zboard.getGameHistory().isEmpty())
 			{
 				screen = 6;
 			}
@@ -988,11 +1009,11 @@ public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyL
 			{
 				if(screen == 2)
 				{
-					Zboard.undoM();
+					Zboard.undo();
 				}
 				else if(screen == 3)
 				{
-					Zboard.undoS();
+					Zboard.undo();
 				}
 				undoPressed = false;
 			}
@@ -1001,6 +1022,66 @@ public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyL
 		{
 			ctrlPressed = false;
 		}
+	}
+	
+	public boolean doesSaveExistS()
+	{
+		if(sHistory.readLine(1).equals("")) {return false;} return true;
+	}
+	
+	public boolean doesSaveExistM()
+	{
+		if(mHistory.readLine(1).equals("")) {return false;} return true;
+	}
+	
+	public void loadSavedGameS()
+	{
+		ArrayList<String> history = new ArrayList<String>();
+		int gameLen = sHistory.numLines();
+		for(int step = 0; step < gameLen - 1; step++)
+		{
+			history.add(sHistory.readLine(step + 1));
+		}
+		Zboard.setHistory(history);
+	}
+	
+	public void loadSavedGameM()
+	{
+		ArrayList<String> history = new ArrayList<String>();
+		int gameLen = mHistory.numLines();
+		for(int step = 0; step < gameLen - 1; step++)
+		{
+			history.add(mHistory.readLine(step + 1));
+		}
+		Zboard.setHistory(history);
+	}
+	
+	public void saveGameS()
+	{
+		ArrayList<String> history = Zboard.getGameHistory();
+		for(String gameState : history)
+		{
+			sHistory.writeln(gameState);
+		}
+	}
+	
+	public void saveGameM()
+	{
+		ArrayList<String> history = Zboard.getGameHistory();
+		for(String gameState : history)
+		{
+			mHistory.writeln(gameState);
+		}
+	}
+	
+	public void destroySavedGameS()
+	{
+		sHistory.eraseEntireFile();
+	}
+	
+	public void destroySavedGameM()
+	{
+		mHistory.eraseEntireFile();
 	}
 	
 	//unused

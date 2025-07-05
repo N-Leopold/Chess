@@ -1,6 +1,6 @@
  package game;
 
-import system.TEditor;
+import java.util.ArrayList;
 
 public class ChessBoard
 {
@@ -36,64 +36,10 @@ public class ChessBoard
 	int[] whitePassantables;
 	int[] blackPassantables;
 	
-	//MOVE RECORDERS
-	String filePath;
-	TEditor recordS; //records single player moves
-	TEditor recordM; //records multi-player moves
+	//GAME HISTORY
+	ArrayList<String> gameHistory;
 	
 	public ChessBoard()
-	{
-		this(false);
-	}
-	
-	public ChessBoard(ChessBoard b)
-	{
-		board = new int[8][8];
-		Qlegal = new int[8][8];
-		whitePassantables = new int[8];
-		blackPassantables = new int[8];
-		legals = new int[27];
-		
-		for(int x = 0; x < 8; x++)
-		{
-			for(int y = 0; y < 8; y++)
-			{
-				board[x][y] = b.getBoardPieces()[x][y];
-				Qlegal[x][y] = b.Qlegal[x][y];			
-			}
-			
-			whitePassantables[x] = b.whitePassantables[x];
-			blackPassantables[x] = b.blackPassantables[x];
-		}
-		
-		for(int step = 0; step < 27; step++)
-		{
-			legals[step] = b.legals[step];
-		}
-		
-		gameOver = b.gameOver;
-		turn = b.getTurn();
-		
-		whiteCheck = b.whiteCheck();
-		blackCheck = b.blackCheck();
-		stalemate = b.isStalemate();
-		whiteCheckmate = b.whiteCheckmate();
-		blackCheckmate = b.blackCheckmate();
-		
-		curInd = b.curInd;
-		POI = b.POI;
-		
-		wAllowCastleMove = b.wAllowCastleMove;
-		bAllowCastleMove = b.bAllowCastleMove;
-		wAllowCastleCheck = b.wAllowCastleCheck;
-		bAllowCastleCheck = b.bAllowCastleCheck;
-		wRightRookMove = b.wRightRookMove;
-		bRightRookMove = b.bRightRookMove;
-		wLeftRookMove = b.wLeftRookMove;
-		bLeftRookMove = b.bLeftRookMove;
-	}
-	
-	public ChessBoard(boolean isBoardAI)
 	{
 		board = new int[8][8]; //a chess board is an 8x8 grid
 		
@@ -104,20 +50,24 @@ public class ChessBoard
 		whitePassantables = new int[8];
 		blackPassantables = new int[8];
 		
-		filePath = System.getProperty("user.dir");
-		
-		if(!isBoardAI)
-		{
-			//FOR TESTING IN ECLIPSE
-			recordS = new TEditor(this.getClass().getClassLoader().getResource("SavedSinglePlayerMoves.txt"));
-			recordM = new TEditor(this.getClass().getClassLoader().getResource("SavedMultiPlayerMoves.txt"));
-			
-			//FOR EXPORTING TO JAR
-			//recordS = new TEditor(filePath + "/Internal Files/SavedSinglePlayerMoves.txt");
-			//recordM = new TEditor(filePath + "/Internal Files/SavedMultiPlayerMoves.txt");
-		}
+		gameHistory = new ArrayList<String>();
 		
 		loadNewGame();
+	}
+	
+	public ChessBoard(ChessBoard b)
+	{
+		board = new int[8][8];
+		
+		Qlegal = new int[8][8];
+		legals = new int[27];
+		
+		whitePassantables = new int[8];
+		blackPassantables = new int[8];
+		
+		gameHistory = new ArrayList<String>();
+		
+		this.setBoardValuesEqual(b);
 	}
 	
 	/*
@@ -176,6 +126,12 @@ public class ChessBoard
 		bRightRookMove = b.bRightRookMove;
 		wLeftRookMove = b.wLeftRookMove;
 		bLeftRookMove = b.bLeftRookMove;
+		
+		gameHistory.clear();
+		for(String state : b.getGameHistory())
+		{
+			this.gameHistory.add(state);
+		}
 	}
 	
 	public int[] getLegalTiles(int x, int y)
@@ -1630,7 +1586,7 @@ public class ChessBoard
 		board[x][y] = 0;
 	}
 	
-	public void moveAI(int x, int y, int fx, int fy)
+	public void move(int x, int y, int fx, int fy)
 	{
 		//if the space we are moving from is the spot where the king usually sits, check for castling
 		onlyMoveOnce:
@@ -1713,418 +1669,122 @@ public class ChessBoard
 		whiteCheck = false;
 		blackCheck = false;
 		checkGameState();
+		recordMove();
 	}
 	
-	public void moveS(int x, int y, int fx, int fy)
+	public void recordMove()
 	{
-		//if the space we are moving from is the spot where the king usually sits, check for castling
-		onlyMoveOnce:
-		{
-			if(x == 4 && y == 0)//check for white king spot
-			{
-				if(board[4][0] == 6) //if that is indeed the white king
-				{
-					if(fx == 6 && fy == 0) //is this castle to the right
-					{
-						simplyMove(x,y,fx,fy);
-						simplyMove(7,0,5,0);
-						break onlyMoveOnce;
-					}
-					
-					else if(fx == 2 && fy == 0) //is this castle to the left
-					{
-						simplyMove(x,y,fx,fy);
-						simplyMove(0,0,3,0);
-						break onlyMoveOnce;
-					}
-				}
-			}
-			else if(x == 4 && y == 7)//check for black king spot
-			{
-				if(board[4][7] == -6) //if that is indeed the black king
-				{
-					if(fx == 6 && fy == 7) //is this castle to the left
-					{
-						simplyMove(x,y,fx,fy);
-						simplyMove(7,7,5,7);
-						break onlyMoveOnce;
-					}
-					else if(fx == 2 && fy == 7) //is this castle to the right
-					{
-						simplyMove(x,y,fx,fy);
-						simplyMove(0,7,3,7);
-						break onlyMoveOnce;
-					}
-				}
-			}
-		
-			//this checks for en passant
-			//for white
-			//if the piece is a pawn moving to a blank space that is not on the same column which the pawn started, it must be passant
-			if(y == 4 && board[x][y] == 1 && board[fx][fy] == 0 && x!=fx)
-			{
-				simplyMove(x,y,fx,fy);
-				board[fx][y] = 0;
-				break onlyMoveOnce;
-			}
-			//for black
-			//if the piece is a pawn moving to a blank space that is not on the same column which the pawn started, it must be passant
-			else if(y == 3 && board[x][y] == -1 && board[fx][fy] == 0 && x!=fx)
-			{
-				simplyMove(x,y,fx,fy);
-				board[fx][y] = 0;
-				break onlyMoveOnce;
-			}
-			
-			//this is for all other (normal) moves
-			simplyMove(x,y,fx,fy);
-		}
-		
-		//this is for promotion of pawns to queens, will fix later
-		for(int xStep = 0;xStep<=7;xStep++)
-		{
-			if(board[xStep][0] == -1)
-			{
-				board[xStep][0] = -5;
-			}
-			if(board[xStep][7] == 1)
-			{
-				board[xStep][7] = 5;
-			}
-		}
-		updateCastleDisqualifiers();
-		updatePassantability();
-		recordMoveS();
-		turn = !turn;
-		whiteCheck = false;
-		blackCheck = false;
-		checkGameState();
-	}
-	
-	public void moveM(int x, int y, int fx, int fy)
-	{
-		//if the space we are moving from is the spot where the king usually sits, check for castling
-		onlyMoveOnce:
-		{
-			if(x == 4 && y == 0)//check for white king spot
-			{
-				if(board[4][0] == 6) //if that is indeed the white king
-				{
-					if(fx == 6 && fy == 0) //is this castle to the right
-					{
-						simplyMove(x,y,fx,fy);
-						simplyMove(7,0,5,0);
-						break onlyMoveOnce;
-					}
-					
-					else if(fx == 2 && fy == 0) //is this castle to the left
-					{
-						simplyMove(x,y,fx,fy);
-						simplyMove(0,0,3,0);
-						break onlyMoveOnce;
-					}
-				}
-			}
-			else if(x == 4 && y == 7)//check for black king spot
-			{
-				if(board[4][7] == -6) //if that is indeed the black king
-				{
-					if(fx == 6 && fy == 7) //is this castle to the left
-					{
-						simplyMove(x,y,fx,fy);
-						simplyMove(7,7,5,7);
-						break onlyMoveOnce;
-					}
-					else if(fx == 2 && fy == 7) //is this castle to the right
-					{
-						simplyMove(x,y,fx,fy);
-						simplyMove(0,7,3,7);
-						break onlyMoveOnce;
-					}
-				}
-			}
-		
-			//this checks for en passant
-			//for white
-			//if the piece is a pawn moving to a blank space that is not on the same column which the pawn started, it must be passant
-			if(y == 4 && board[x][y] == 1 && board[fx][fy] == 0 && x!=fx)
-			{
-				simplyMove(x,y,fx,fy);
-				board[fx][y] = 0;
-				break onlyMoveOnce;
-			}
-			//for black
-			//if the piece is a pawn moving to a blank space that is not on the same column which the pawn started, it must be passant
-			else if(y == 3 && board[x][y] == -1 && board[fx][fy] == 0 && x!=fx)
-			{
-				simplyMove(x,y,fx,fy);
-				board[fx][y] = 0;
-				break onlyMoveOnce;
-			}
-			
-			//this is for all other (normal) moves
-			simplyMove(x,y,fx,fy);
-		}
-		
-		//this is for promotion of pawns to queens, will fix later
-		for(int xStep = 0;xStep<=7;xStep++)
-		{
-			if(board[xStep][0] == -1)
-			{
-				board[xStep][0] = -5;
-			}
-			if(board[xStep][7] == 1)
-			{
-				board[xStep][7] = 5;
-			}
-		}
-		updateCastleDisqualifiers();
-		updatePassantability();
-		recordMoveM();
-		turn = !turn;
-		whiteCheck = false;
-		blackCheck = false;
-		checkGameState();
-	}
-	
-	public void recordMoveS()
-	{
+		String boardState = "";
 		//all the pieces for all the positions
 		for(int x = 0; x < 8; x++)
 		{
 			for(int y = 0; y < 8; y++)
 			{
-				recordS.write("|" + x + "," + y + ":" + board[x][y] + ";");
+				boardState += (board[x][y] + 16);
 			}
 		}
 		
-		//records castle disqualifiers in the following order
-			//wAllowCastleMove
-			//bAllowCastleMove
-			//wAllowCastleCheck
-			//bAllowCastleCheck
-			//wRightRookMove
-			//bRightRookMove
-			//wLeftRookMove
-			//bLeftRookMove
-		recordS.write("castle:"+CBTS(wAllowCastleMove)+CBTS(bAllowCastleMove)+CBTS(wAllowCastleCheck)+CBTS(bAllowCastleCheck)
-		+CBTS(wRightRookMove)+CBTS(bRightRookMove)+CBTS(wLeftRookMove)+CBTS(bLeftRookMove)+";");
+		// records castling data
+		boardState += CBTS(wAllowCastleMove)
+					+CBTS(bAllowCastleMove)
+					+CBTS(wAllowCastleCheck)
+					+CBTS(bAllowCastleCheck)
+					+CBTS(wRightRookMove)
+					+CBTS(bRightRookMove)
+					+CBTS(wLeftRookMove)
+					+CBTS(bLeftRookMove);
 		
 		//records the passantability of the pawns
-		//for white
-		recordS.write("passantW:");
-		for(int passW = 0; passW < 8; passW++)
+		for(int pass = 0; pass < 8; pass++)
 		{
-			recordS.write(CITS(whitePassantables[passW]));
+			boardState += CITS(whitePassantables[pass]); //for white
+			boardState += CITS(blackPassantables[pass]); //for black
 		}
-		recordS.write(";");
-		//for black
-		recordS.write("passantB:");
-		for(int passB = 0; passB < 8; passB++)
-		{
-			recordS.write(CITS(blackPassantables[passB]));
-		}
-		recordS.write(";");
 		
 		//writes the next turn and goes to the next line
-		recordS.writeln("next:"+!turn+";");
-	}
-	
-	public void recordMoveM()
-	{
-		//all the pieces for all the positions
-		for(int x = 0; x < 8; x++)
-		{
-			for(int y = 0; y < 8; y++)
-			{
-				recordM.write("|" + x + "," + y + ":" + board[x][y] + ";");
-			}
-		}
-		
-		//records castle disqualifiers in the following order
-			//wAllowCastleMove
-			//bAllowCastleMove
-			//wAllowCastleCheck
-			//bAllowCastleCheck
-			//wRightRookMove
-			//bRightRookMove
-			//wLeftRookMove
-			//bLeftRookMove
-		recordM.write("castle:"+CBTS(wAllowCastleMove)+CBTS(bAllowCastleMove)+CBTS(wAllowCastleCheck)+CBTS(bAllowCastleCheck)
-		+CBTS(wRightRookMove)+CBTS(bRightRookMove)+CBTS(wLeftRookMove)+CBTS(bLeftRookMove)+";");
-		
-		//records the passantability of the pawns
-		//for white
-		recordM.write("passantW:");
-		for(int passW = 0; passW < 8; passW++)
-		{
-			recordM.write(CITS(whitePassantables[passW]));
-		}
-		recordM.write(";");
-		//for black
-		recordM.write("passantB:");
-		for(int passB = 0; passB < 8; passB++)
-		{
-			recordM.write(CITS(blackPassantables[passB]));
-		}
-		recordM.write(";");
-		
-		//writes the next turn and goes to the next line
-		recordM.writeln("next:"+!turn+";");
+		boardState += CBTS(turn);
+		gameHistory.add(boardState);
 	}
 	
 	public String CBTS(boolean b) //(Convert Boolean To String)
 	{
-		if(b)
-		{
-			return "t";
-		}
-		else
-		{
-			return "f";
-		}
+		if(b){return "t";}return "f";
 	}
 	public boolean CSTB(String s) //(Convert String To Boolean)
 	{
-		if(s.equals("t"))
-		{
-			return true;
-		}
-		
-		return false;
+		if(s.equals("t")){return true;}return false;
 	}
 	public String CITS(int i) //(Convert Integer to String)
 	{
-		if(i == 0) {return "0";}
-		else if(i == 1) {return "1";}
-		return "2";
+		if(i == 0) {return "0";}return "1";
 	}
 	public int CSTI(String s) //(Convert String to Integer)
 	{
-		if(s.equals("0")) {return 0;}
-		else if(s.equals("1")) {return 1;}
-		return 2;
+		if(s.equals("0")) {return 0;}return 1;
 	}
 	
-	public void loadSavedMoveS(int move)
+	public void setHistory(ArrayList<String> history)
 	{
+		gameHistory.clear();
+		for(String boardState : history)
+		{
+			gameHistory.add(boardState);
+		}
+		loadSavedMove(history.size() - 1);
+	}
+	
+	public ArrayList<String> getGameHistory()
+	{
+		return gameHistory;
+	}
+	
+	public void loadSavedMove(int pos)
+	{
+		String gameState = gameHistory.get(pos);
+		int index = 0;
 		for(int x = 0; x < 8; x++)
 		{
 			for(int y = 0; y < 8; y++)
 			{
-				board[x][y] = Integer.parseInt(recordS.readLineBetween(move,"|"+x+","+y+":",";"));
+				board[x][y] = Integer.parseInt(gameState.substring(index,index + 2)) - 16;
+				index += 2;
 			}
 		}
-		
-		//set the castle disqualifiers
-		wAllowCastleMove = CSTB(recordS.readLineBetween(move, "castle:", ";").substring(0,1));
-		bAllowCastleMove = CSTB(recordS.readLineBetween(move, "castle:", ";").substring(1,2));
-		wAllowCastleCheck = CSTB(recordS.readLineBetween(move, "castle:", ";").substring(2,3));
-		bAllowCastleCheck = CSTB(recordS.readLineBetween(move, "castle:", ";").substring(3,4));
-		wRightRookMove = CSTB(recordS.readLineBetween(move, "castle:", ";").substring(4,5));
-		wLeftRookMove = CSTB(recordS.readLineBetween(move, "castle:", ";").substring(5,6));
-		bRightRookMove = CSTB(recordS.readLineBetween(move, "castle:", ";").substring(6,7));
-		bLeftRookMove = CSTB(recordS.readLineBetween(move, "castle:", ";").substring(7,8));
+		wAllowCastleMove = CSTB(gameState.substring(index,++index));
+		bAllowCastleMove = CSTB(gameState.substring(index,++index));
+		wAllowCastleCheck = CSTB(gameState.substring(index,++index));
+		bAllowCastleCheck = CSTB(gameState.substring(index,++index));
+		wRightRookMove = CSTB(gameState.substring(index,++index));
+		wLeftRookMove = CSTB(gameState.substring(index,++index));
+		bRightRookMove = CSTB(gameState.substring(index,++index));
+		bLeftRookMove = CSTB(gameState.substring(index,++index));
 		
 		//set the passantability of pawns
 		for(int pass = 0; pass < 8; pass++)
 		{
-			whitePassantables[pass] = CSTI(recordS.readLineBetween(move, "passantW:", ";").substring(pass,pass+1));
-			blackPassantables[pass] = CSTI(recordS.readLineBetween(move, "passantB:", ";").substring(pass,pass+1));
+			whitePassantables[pass] = CSTI(gameState.substring(index,++index));
+			blackPassantables[pass] = CSTI(gameState.substring(index,++index));
 		}
 		
-		turn = Boolean.parseBoolean(recordS.readLineBetween(move,"next:",";"));
-		checkGameState();
+		//tells which player plays next
+		turn = CSTB(gameState.substring(index));
 	}
 	
-	public void loadSavedMoveM(int move)
+	public void undo()
 	{
-		for(int x = 0; x < 8; x++)
+		int holdSize = gameHistory.size();
+		if(!(holdSize == 0))
 		{
-			for(int y = 0; y < 8; y++)
+			if(holdSize == 1)
 			{
-				board[x][y] = Integer.parseInt(recordM.readLineBetween(move,"|"+x+","+y+":",";"));
-			}
-		}
-		
-		//set the castle disqualifiers
-		wAllowCastleMove = CSTB(recordM.readLineBetween(move, "castle:", ";").substring(0,1));
-		bAllowCastleMove = CSTB(recordM.readLineBetween(move, "castle:", ";").substring(1,2));
-		wAllowCastleCheck = CSTB(recordM.readLineBetween(move, "castle:", ";").substring(2,3));
-		bAllowCastleCheck = CSTB(recordM.readLineBetween(move, "castle:", ";").substring(3,4));
-		wRightRookMove = CSTB(recordM.readLineBetween(move, "castle:", ";").substring(4,5));
-		wLeftRookMove = CSTB(recordM.readLineBetween(move, "castle:", ";").substring(5,6));
-		bRightRookMove = CSTB(recordM.readLineBetween(move, "castle:", ";").substring(6,7));
-		bLeftRookMove = CSTB(recordM.readLineBetween(move, "castle:", ";").substring(7,8));
-		
-		//set the passantability of pawns
-		for(int pass = 0; pass < 8; pass++)
-		{
-			whitePassantables[pass] = CSTI(recordM.readLineBetween(move, "passantW:", ";").substring(pass,pass+1));
-			blackPassantables[pass] = CSTI(recordM.readLineBetween(move, "passantB:", ";").substring(pass,pass+1));
-		}
-		
-		turn = Boolean.parseBoolean(recordM.readLineBetween(move,"next:",";"));
-		checkGameState();
-	}
-	
-	public void loadSavedGameS()
-	{
-		loadSavedMoveS(recordS.numLines()-1);
-	}
-	
-	public void loadSavedGameM()
-	{
-		loadSavedMoveM(recordM.numLines()-1);
-	}
-	
-	public void undoS()
-	{
-		//we only try because if we have not started the game, we should not undo
-		try
-		{
-			int m = recordS.numLines()-1;
-			if(m == 2)
-			{
-				clearBoard();
-				populateBoard();
-				turn = true;
-			}
-			recordS.deleteLine(m);
-			recordS.deleteLine(m-1);
-			loadSavedMoveS(m-2);
-		} catch(Exception e) {}
-	}
-	
-	public void undoM()
-	{
-		//we only try because if we have not started the game, we should not undo
-		try
-		{
-			int m = recordM.numLines()-1;
-			recordM.deleteLine(m);
-		
-			if(m == 1)
-			{
-				resetBoard();
-				populateBoard();
-				turn = true;
+				loadNewGame();
 			}
 			else
 			{
-				loadSavedMoveM(m-1);
+				loadSavedMove(holdSize-2);
+				gameHistory.remove(holdSize-1);
 			}
-		} catch(Exception e) {}
-	}
-	
-	public void destroySavedGameS()
-	{
-		recordS.eraseEntireFile();
-	}
-	
-	public void destroySavedGameM()
-	{
-		recordM.eraseEntireFile();
+		}
 	}
 	
 	public boolean whiteCheckmate()
@@ -2178,11 +1838,6 @@ public class ChessBoard
 			return true;
 		}
 		return false;
-	}
-	
-	public void print(String g)
-	{
-		System.out.println(g);
 	}
 	
 	public boolean isStalemate()
@@ -2333,6 +1988,11 @@ public class ChessBoard
 		return true;
 	}
 	
+	public void adminPlace(int piece, int x, int y)
+	{
+		board[x][y] = piece;
+	}
+	
 	public void place(String pie, int x, int y, boolean white)
 	{
 		int p;
@@ -2430,28 +2090,17 @@ public class ChessBoard
 			whitePassantables[i] = 0;
 			blackPassantables[i] = 0;
 		}
-	}
-	public void clearBoard()
-	{
-		gameOver = false;
-		whiteCheck = false;
-		blackCheck = false;
-		stalemate = false;
-		whiteCheckmate = false;
-		blackCheckmate = false;
-		
-		for(int i = 0;i<8;i++)
-		{
-			for(int j = 0;j<8;j++)
-			{
-				board[i][j] = 0;
-			}
-		}
+		gameHistory.clear();
 	}
 	
 	public int[][] getBoardPieces()
 	{
 		return board;
+	}
+	
+	public int getPieceAt(int x, int y)
+	{
+		return board[x][y];
 	}
 	
 	public void printBoard()
@@ -2474,30 +2123,6 @@ public class ChessBoard
 	public void nextTurn()
 	{
 		turn = !turn;
-	}
-	
-	public boolean doesSaveExistS()
-	{
-		if(recordS.readLine(1).equals(""))
-		{
-			return false;
-		}
-		else
-		{
-			return true;
-		}
-	}
-	
-	public boolean doesSaveExistM()
-	{
-		if(recordM.readLine(1).equals(""))
-		{
-			return false;
-		}
-		else
-		{
-			return true;
-		}
 	}
 	
 	public void updateQlegal()
@@ -2557,7 +2182,7 @@ public class ChessBoard
 			while(zMove%3==0){zMove/=3;xPos++;}
 			while(zMove%5==0){zMove/=5;yPos++;}
 			
-			moveS(rX,rY,xPos,yPos);
+			move(rX,rY,xPos,yPos);
 		}
 	}
 	//public int getGameState() {}
