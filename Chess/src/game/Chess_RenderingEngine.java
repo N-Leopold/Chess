@@ -143,7 +143,7 @@ public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyL
 		
 		screen = 1;
 		
-		clock = new Timer(10,this);
+		clock = new Timer(1000,this);
 		clock.start();
 	}
 	
@@ -175,13 +175,7 @@ public class Chess_RenderingEngine extends JPanel implements ActionListener,KeyL
 			{
 				screen = 8;
 			}
-			if(!Zboard.getTurn())
-			{
-				//System.out.println("it's black's turn");
-				//Zboard.performRandomBlackMove();
-				lilTimmy.AIturn();
-			}
-			else {bigBadBoy.play(4);}
+			if(!Zboard.getTurn()) {lilTimmy.play();}// note that when the user views the board, we will need to tell the AI to stop thinking about how to escape
 		}
 		else if(screen == 4 || screen == 5)
 		{

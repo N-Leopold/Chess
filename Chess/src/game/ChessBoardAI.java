@@ -4,8 +4,19 @@ import java.util.ArrayList;
 
 public class ChessBoardAI
 {
-	ChessBoard gameBoard;
-	boolean playingAs;
+	ChessBoard gameBoard; // the board we are playing on
+	
+	boolean playingAs; // true = white, false = black
+	
+	int capacity; // how many moves we consider at a time for a given board state
+	
+	int depth; // how far in the future the AI looks
+	
+	
+	
+	
+	
+	
 	
 	double[] bestEight;
 	
@@ -31,21 +42,164 @@ public class ChessBoardAI
 		bishValue = 3;
 		queenValue = 9;
 		
-		while(true)
+		capacity = 8;
+		
+//		while(true)
+//		{
+//			//System.out.println("hello?");
+//			if(gameBoard.turn == playAs)
+//			{
+//				System.out.println("got here");
+//				makeBestMove();
+//			}
+//			try {Thread.sleep(0);} catch (InterruptedException e) {}
+//		}
+	}
+	
+	public void play()
+	{
+		System.out.println("AI is starting to play");
+		long startTime = System.nanoTime();
+		
+		ChessBoard gameBoardCopy = new ChessBoard(gameBoard);
+		double[] zippedListMovesAndValues = getBestMovesToCapacity(gameBoardCopy);
+		
+		// this is where it looks into the future
+		
+		// chooses best move
+		int indexBestMove = -1; // index of the best move in the zipped list
+		double bestValue = Double.MIN_VALUE;
+		for(int zipIndexValue = 2*capacity; zipIndexValue < 3*capacity; zipIndexValue++)
 		{
-			//System.out.println("hello?");
-			if(gameBoard.turn == playAs)
+			double holdValue;
+			if((holdValue = zippedListMovesAndValues[zipIndexValue]) > bestValue)
 			{
-				System.out.println("got here");
-				makeBestMove();
+				bestValue = holdValue;
+				indexBestMove = zipIndexValue - 2*capacity;
 			}
-			try {Thread.sleep(0);} catch (InterruptedException e) {}
 		}
+		
+		for(int step = 0; step < capacity; step++)
+		{
+			System.out.println(doubleToMove(zippedListMovesAndValues[step]));
+		}
+		System.out.println("");
+		
+		// this is a safety, but if play() is called, the game is not over
+		if(indexBestMove != -1)
+		{
+			System.out.println("making a move");
+			makeMove(gameBoard, zippedListMovesAndValues[indexBestMove], true);			
+		}
+		long totalTimeMicro = (System.nanoTime() - startTime)/1000;
+		long totalTimeMilli = totalTimeMicro/1000;
+		System.out.println("AI took " + totalTimeMilli + "." + (totalTimeMicro-totalTimeMilli*1000) + " milliseconds to think");
+	}
+	
+	// method requires that there be at least one legal move
+	public double[] getBestMovesToCapacity(ChessBoard board)
+	{
+		// the first (capacity) slots are the moves
+		// the second (capacity) slots are the opponent's responses
+		// the third (capacity) slots are the cost/benefit values
+		double[] zippedData = new double[3 * capacity];
+		
+		// we need to set the initial value data to smallest value
+		for(int step = 2*capacity; step < 3*capacity; step++)
+		{
+			zippedData[step] = Double.MIN_VALUE;
+		}
+		
+		ChessBoard testBoard = new ChessBoard(board);
+		
+		double opponentBestMove;
+		double costBenefitValue;
+		int[][] boardPieces = testBoard.getBoardPieces();
+		for(int x = 0; x < 8; x++)
+		{
+			for(int y = 0; y < 8; y++)
+			{
+				if((playingAs && boardPieces[x][y] > 0) || (!playingAs && boardPieces[x][y] < 0))
+				{
+					int[] legalEndPositions = testBoard.getLegalTiles(x, y);
+					for(int squashedEndPos : legalEndPositions)
+					{
+						if(squashedEndPos > 0)
+						{
+							// for each legal move it player can make
+							// make that move
+							makeMove(testBoard, move2Double(x,y,squashedEndPos), false);
+							opponentBestMove = makeAndReturnOppBestMove(testBoard);
+							costBenefitValue = value(testBoard, playingAs);
+
+							// add as best move if it is one
+							insertOnce:for(int indexValues = 2*capacity; indexValues < 3*capacity; indexValues++)
+							{
+								if(costBenefitValue > zippedData[indexValues])
+								{
+									// scoot everything backwards
+									for(int step = capacity - 1; step > (indexValues - 2*capacity); step--)
+									{
+										zippedData[step] = zippedData[step - 1];
+										zippedData[step + capacity] = zippedData[step + capacity - 1];
+										zippedData[step + 2*capacity] = zippedData[step + 2*capacity - 1];
+									}
+									zippedData[indexValues - 2*capacity] = move2Double(x,y,squashedEndPos);
+									zippedData[indexValues - capacity] = opponentBestMove;
+									zippedData[indexValues] = costBenefitValue;
+									
+									break insertOnce;
+								}
+							}
+							
+							testBoard.setBoardValuesEqual(board, false);
+						}
+					}
+				}
+			}
+		}
+		
+		return zippedData;
+	}
+	
+	public double makeAndReturnOppBestMove(ChessBoard board)
+	{
+		ChessBoard testBoard = new ChessBoard(board);
+		double bestMove = 0;
+		double holdValue;
+		double bestValue = Double.MIN_VALUE;
+		int[][] boardPieces = testBoard.getBoardPieces();
+		for(int x = 0; x < 8; x++)
+		{
+			for(int y = 0; y < 8; y++)
+			{
+				if((!playingAs && boardPieces[x][y] > 0) || (playingAs && boardPieces[x][y] < 0))
+				{
+					int[] legalEndPositions = testBoard.getLegalTiles(x, y);
+					
+					for(int squashedEndPos : legalEndPositions)
+					{
+						if(squashedEndPos > 0)
+						{
+							makeMove(testBoard, move2Double(x,y,squashedEndPos), false);
+							if((holdValue = value(testBoard,!playingAs)) > bestValue)
+							{
+								bestValue = holdValue;
+								bestMove = move2Double(x,y,squashedEndPos);
+							}
+							testBoard.setBoardValuesEqual(board, false);
+						}
+					}
+				}
+			}
+		}
+		makeMove(board, bestMove, false);
+		return bestMove;
 	}
 	
 	public int value(ChessBoard board, boolean white)
 	{
-		int value = 0;
+		int value = 11;
 		
 		//checkmate is very bad
 		if(white && board.whiteCheckmate()) {return 0;}
@@ -54,6 +208,10 @@ public class ChessBoardAI
 		//check is bad also
 		if(white && board.whiteCheck()) {value -= checkMult;}
 		if(!white && board.blackCheck()) {value -= checkMult;}
+		
+		//putting the other in check is good though
+		if(!white && board.whiteCheck()) {value += checkMult;}
+		if(white && board.blackCheck()) {value += checkMult;}
 		
 		//adds the value of the peices on the board
 		for(int x = 0; x < 8; x++)
@@ -108,7 +266,7 @@ public class ChessBoardAI
 	
 	public void makeBestMove()
 	{
-		makeMove(gameBoard, evaluateBestMove());
+		makeMove(gameBoard, evaluateBestMove(), true);
 	}
 	
 	public double evaluateBestMove()
@@ -144,7 +302,7 @@ public class ChessBoardAI
 	
 	public void getBestEight(ChessBoard board, boolean white)
 	{
-		//System.out.println("knock knoc");
+		//System.out.println("knock knock");
 		ChessBoard hold = new ChessBoard(board);
 
 		double[] moves = new double[8];
@@ -242,6 +400,26 @@ public class ChessBoardAI
 		return Math.pow(2, xi)*Math.pow(3, yi)*Math.pow(5, xf)*Math.pow(7, yf);
 	}
 	
+	public double move2Double(int xi, int yi, int f)
+	{
+		int xf = 0;
+		int yf = 0;
+		while(f%3==0) {f/=3; xf++;}
+		while(f%5==0) {f/=5; yf++;}
+		
+		return move2Double(xi,yi,xf,yf);
+	}
+	public String printSq(int f)
+	{
+		if(f == 0) {return "zero";}
+		int xf = 0;
+		int yf = 0;
+		while(f%3==0) {f/=3; xf++;}
+		while(f%5==0) {f/=5; yf++;}
+		
+		return "(" + xf + ", " + yf + ")";
+	}
+	
 	public void makeBestMoveOpp(ChessBoard board, boolean white) //opponent is !white (white is the AI)
 	{
 		ChessBoard hold = new ChessBoard(board);
@@ -315,19 +493,35 @@ public class ChessBoardAI
 		makeMove(board, bestMove);
 	}
 	
-	public void makeMove(ChessBoard board, double move)
+	public String doubleToMove(double move)
 	{
+		if(move == 0) {return "zero";}
 		int xi = 0;
 		int yi = 0;
 		int xf = 0;
 		int yf = 0;
-		//System.out.println("EVEN GETTING HERE" + move);
+		
 		while(move%2==0) {move/=2; xi++;}
 		while(move%3==0) {move/=3; yi++;}
 		while(move%5==0) {move/=5; xf++;}
 		while(move%7==0) {move/=7; yf++;}
 		
-		board.moveAI(xi, yi, xf, yf);
+		return "This move entails moving (" + xi + ", " + yi + ") to (" +xf+", " + yf + ")";
+	}
+	
+	public void makeMove(ChessBoard board, double move, boolean saveHistory)
+	{
+		int xi = 0;
+		int yi = 0;
+		int xf = 0;
+		int yf = 0;
+		
+		while(move%2==0) {move/=2; xi++;}
+		while(move%3==0) {move/=3; yi++;}
+		while(move%5==0) {move/=5; xf++;}
+		while(move%7==0) {move/=7; yf++;}
+		
+		board.move(xi, yi, xf, yf, saveHistory);
 	}
 	
 	public int getFourthLayerBestValue(ChessBoard board, boolean white)

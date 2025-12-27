@@ -89,6 +89,11 @@ public class ChessBoard
 	
 	public void setBoardValuesEqual(ChessBoard b)
 	{
+		setBoardValuesEqual(b, true);
+	}
+	
+	public void setBoardValuesEqual(ChessBoard b, boolean setHistoryToo)
+	{
 		for(int x = 0; x < 8; x++)
 		{
 			for(int y = 0; y < 8; y++)
@@ -127,10 +132,13 @@ public class ChessBoard
 		wLeftRookMove = b.wLeftRookMove;
 		bLeftRookMove = b.bLeftRookMove;
 		
-		gameHistory.clear();
-		for(String state : b.getGameHistory())
+		if(setHistoryToo)
 		{
-			this.gameHistory.add(state);
+			gameHistory.clear();
+			for(String state : b.getGameHistory())
+			{
+				this.gameHistory.add(state);
+			}
 		}
 	}
 	
@@ -206,7 +214,8 @@ public class ChessBoard
 			getLegalBlackPawn(x,y);
 		}
 		//System.out.println("yeet");
-		return legals;
+		int[] postingLegals = legals.clone();
+		return postingLegals;
 	}
 	
 	public void addLegalRespectCheck(int xi, int yi, int xf, int yf, boolean white)
@@ -1588,6 +1597,11 @@ public class ChessBoard
 	
 	public void move(int x, int y, int fx, int fy)
 	{
+		move(x, y, fx, fy, true);
+	}
+	
+	public void move(int x, int y, int fx, int fy, boolean saveToHistory)
+	{
 		//if the space we are moving from is the spot where the king usually sits, check for castling
 		onlyMoveOnce:
 		{
@@ -1669,7 +1683,10 @@ public class ChessBoard
 		whiteCheck = false;
 		blackCheck = false;
 		checkGameState();
-		recordMove();
+		if(saveToHistory)
+		{
+			recordMove();
+		}
 	}
 	
 	public void recordMove()
